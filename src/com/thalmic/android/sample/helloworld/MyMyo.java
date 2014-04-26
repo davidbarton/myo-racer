@@ -13,6 +13,7 @@ public class MyMyo implements Comparable<MyMyo> {
 	private float sum = 0;
 	private int pos_x;
 	private int pos_y;
+	private int[] color;
 
 	public int getPos_x() {
 		return pos_x;
@@ -158,7 +159,14 @@ public class MyMyo implements Comparable<MyMyo> {
 	@Override
 	public int compareTo(MyMyo another) {
 		// TODO Auto-generated method stub
-		return (int) (getSum() - another.getSum());
+		return (int) (another.getSum() - getSum());
 	}
 
+	public void setColor(int i, int j, int k) {
+		color = new int[] { i, j, k };
+	}
+
+	public int[] getColor() {
+		return color;
+	}
 }
