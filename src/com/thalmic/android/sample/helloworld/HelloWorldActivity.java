@@ -11,10 +11,14 @@ import java.util.List;
 import orbotix.robot.base.CollisionDetectedAsyncData;
 import orbotix.robot.base.Robot;
 import orbotix.robot.base.RobotProvider;
+import orbotix.robot.sensor.DeviceSensorsData;
 import orbotix.sphero.CollisionListener;
 import orbotix.sphero.ConnectionListener;
 import orbotix.sphero.DiscoveryListener;
 import orbotix.sphero.PersistentOptionFlags;
+import orbotix.sphero.SensorControl;
+import orbotix.sphero.SensorFlag;
+import orbotix.sphero.SensorListener;
 import orbotix.sphero.Sphero;
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -330,7 +334,8 @@ public class HelloWorldActivity extends Activity {
 					System.err.println(x + ":" + y + "=" + heading);
 					if (mRobot != null) {
 						mRobot.setColor(255, 0, 0);
-						mRobot.drive(heading, (float) seekBarValue / (float) 100.0);
+						mRobot.drive(heading, (float) seekBarValue
+								/ (float) 100.0);
 					}
 					break;
 				}
@@ -537,15 +542,16 @@ public class HelloWorldActivity extends Activity {
 		// Toast.makeText(HelloWorldActivity.this,
 		// mRobot.getName() + " Connected", Toast.LENGTH_LONG).show();
 
-		// final SensorControl control = mRobot.getSensorControl();
-		// control.addSensorListener(new SensorListener() {
-		// @Override
-		// public void sensorUpdated(DeviceSensorsData sensorDataArray) {
-		// Log.i(TAG, sensorDataArray.toString());
-		// }
-		// }, SensorFlag.ACCELEROMETER_NORMALIZED, SensorFlag.GYRO_NORMALIZED);
-		//
-		// control.setRate(1);
+		final SensorControl control = mRobot.getSensorControl();
+		control.addSensorListener(new SensorListener() {
+			@Override
+			public void sensorUpdated(DeviceSensorsData sensorDataArray) {
+				Log.i(TAG, sensorDataArray.toString());
+			}
+		}, SensorFlag.MOTOR_BACKEMF_NORMALIZED, SensorFlag.VELOCITY,
+				SensorFlag.ACCELEROMETER_NORMALIZED, SensorFlag.GYRO_NORMALIZED);
+
+		control.setRate(1);
 
 		mRobot.enableStabilization(true);
 
