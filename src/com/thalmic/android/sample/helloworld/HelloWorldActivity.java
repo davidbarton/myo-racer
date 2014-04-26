@@ -334,6 +334,15 @@ public class HelloWorldActivity extends Activity {
 					}
 					break;
 				}
+				case MotionEvent.ACTION_UP: 
+					float x = 0;
+					float y = 0;
+					float heading = 0;
+					System.err.println(x + ":" + y + "=" + heading);
+					if (mRobot != null && mRobot.isConnected()) {
+						mRobot.drive(heading, .0f);
+					}
+					break;
 				default:
 					break;
 				}
