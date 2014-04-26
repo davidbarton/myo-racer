@@ -153,6 +153,8 @@ public class HelloWorldActivity extends Activity {
 					heading = 360 + heading;
 				if (rotx < 0)
 					rotx = 0;
+				if(rotx > 1)
+					rotx = 1;
 				if (mRobot != null && ride)
 					mRobot.drive(heading, rotx);
 				else if (mRobot != null)
@@ -329,7 +331,7 @@ public class HelloWorldActivity extends Activity {
 						heading = 360 + heading;
 					System.err.println(x + ":" + y + "=" + heading);
 					if (mRobot != null) {
-						mRobot.setColor(255, 0, 0);
+						mRobot.setColor( (int)(256-(x/(event.getX() - v.getHeight() / 2))*256) , (int)(256-(y/(event.getY() - v.getWidth() / 2))*256), (int)(128+(heading%256)/2));
 						mRobot.drive(heading, (float) seekBarValue / (float) 100.0);
 					}
 					break;
