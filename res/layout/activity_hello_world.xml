@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="com.thalmic.android.sample.helloworld.HelloWorldActivity"
-    tools:ignore="MergeRootFrame">
+    tools:ignore="MergeRootFrame" >
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -62,13 +62,34 @@
 
         </RelativeLayout>
 
-        <android.gesture.GestureOverlayView
-            android:id="@+id/gestureOverlayView1"
-            android:layout_width="match_parent"
+        <RelativeLayout
+            android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:background="#FF0000" >
-        </android.gesture.GestureOverlayView>
+            android:layout_weight="1" >
+
+            <android.gesture.GestureOverlayView
+                android:id="@+id/gestureOverlayView1"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_above="@+id/seekBar1"
+                android:layout_weight="1"
+                android:background="#FF0000" >
+
+            </android.gesture.GestureOverlayView>
+
+            <SeekBar
+                android:id="@+id/seekBar1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_alignParentBottom="true"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentRight="true"
+                android:layout_alignParentTop="false"
+                android:max="100"
+                android:progress="50" />
+
+        </RelativeLayout>
+
     </LinearLayout>
 
 </FrameLayout>

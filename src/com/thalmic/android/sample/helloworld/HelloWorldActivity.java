@@ -33,6 +33,8 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.View.OnTouchListener;
 import android.widget.Button;
+import android.widget.SeekBar;
+import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -67,6 +69,8 @@ public class HelloWorldActivity extends Activity {
 	private float rotz = 0;
 	private float heading = 0;
 	private float speed = 0;
+
+	private int seekBarValue = 50;
 
 	public static final String TAG = "OBX-HelloWorld";
 
@@ -270,6 +274,28 @@ public class HelloWorldActivity extends Activity {
 			}
 		});
 
+		SeekBar bar = (SeekBar) findViewById(R.id.seekBar1);
+		bar.setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
+
+			@Override
+			public void onStopTrackingTouch(SeekBar seekBar) {
+				seekBarValue = seekBar.getProgress();
+			}
+
+			@Override
+			public void onStartTrackingTouch(SeekBar seekBar) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void onProgressChanged(SeekBar seekBar, int progress,
+					boolean fromUser) {
+				// TODO Auto-generated method stub
+
+			}
+		});
+
 		// First, we initialize the Hub singleton.
 		Hub hub = Hub.getInstance();
 		if (!hub.init(HelloWorldActivity.this)) {
@@ -304,7 +330,7 @@ public class HelloWorldActivity extends Activity {
 					System.err.println(x + ":" + y + "=" + heading);
 					if (mRobot != null) {
 						mRobot.setColor(255, 0, 0);
-						mRobot.drive(heading, 0.8f);
+						mRobot.drive(heading, (float) seekBarValue / (float) 100.0);
 					}
 					break;
 				}
