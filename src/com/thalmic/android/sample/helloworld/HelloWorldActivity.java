@@ -14,13 +14,17 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
+import orbotix.macro.MacroObject;
 import orbotix.robot.base.CollisionDetectedAsyncData;
+import orbotix.robot.base.ConfigureLocatorCommand;
 import orbotix.robot.base.Robot;
 import orbotix.robot.base.RobotProvider;
 import orbotix.robot.sensor.DeviceSensorsData;
+import orbotix.robot.sensor.LocatorData;
 import orbotix.sphero.CollisionListener;
 import orbotix.sphero.ConnectionListener;
 import orbotix.sphero.DiscoveryListener;
+import orbotix.sphero.LocatorListener;
 import orbotix.sphero.PersistentOptionFlags;
 import orbotix.sphero.SensorControl;
 import orbotix.sphero.SensorFlag;
@@ -340,9 +344,10 @@ public class HelloWorldActivity extends Activity {
 
 					@Override
 					public void run() {
+						ConfigureLocatorCommand.sendCommand(mRobot, 0, 0, 0, 0);
 						try {
-							norm_x = sphero_x;
-							norm_y = sphero_y;
+//							norm_x = sphero_x;
+//							norm_y = sphero_y;
 							mRobot.setColor(0, 255, 0);
 							Thread.sleep(1000);
 							mRobot.setColor(0, 0, 0);
@@ -736,16 +741,18 @@ public class HelloWorldActivity extends Activity {
 		// Toast.makeText(HelloWorldActivity.this,
 		// mRobot.getName() + " Connected", Toast.LENGTH_LONG).show();
 
-		final SensorControl control = mRobot.getSensorControl();
-		control.addSensorListener(new SensorListener() {
+		LocatorListener mLocatorListener = new LocatorListener() {
 			@Override
-			public void sensorUpdated(DeviceSensorsData sensorDataArray) {
-				// Log.i(TAG, sensorDataArray.toString());
-				sphero_x = sensorDataArray.getLocatorData().getPositionX();
-				sphero_y = sensorDataArray.getLocatorData().getPositionY();
+			public void onLocatorChanged(LocatorData locatorData) {
+				// Do stuff with the locator data
+				sphero_x = locatorData.getPositionX();
+				sphero_y = locatorData.getPositionY();
 			}
-		}, SensorFlag.LOCATOR);
+		};
 
+		final SensorControl control = mRobot.getSensorControl();
+		control.addLocatorListener(mLocatorListener);
+		
 		control.setRate(20);
 
 		mRobot.enableStabilization(true);
@@ -826,6 +833,7 @@ public class HelloWorldActivity extends Activity {
 
 						}
 					});
+//					mRobot.executeMacro(new MacroObject()))
 					mRobot.drive(heading, (float) seekBarValue / 100.0f);
 				}
 				mRobot.drive(0f, 0f);
