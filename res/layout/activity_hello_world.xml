@@ -11,14 +11,56 @@
         android:layout_height="match_parent"
         android:orientation="horizontal" >
 
-        <TextView
-            android:id="@+id/text"
+        <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:text="@string/hello_world"
-            android:textSize="50dp"
-            tools:ignore="SpUsage" />
+            android:layout_weight="1" >
+
+            <TextView
+                android:id="@+id/x"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentTop="true"
+                android:text="Medium Text"
+                android:textAppearance="?android:attr/textAppearanceMedium" />
+
+            <TextView
+                android:id="@+id/y"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentLeft="true"
+                android:layout_below="@+id/x"
+                android:text="Medium Text"
+                android:textAppearance="?android:attr/textAppearanceMedium" />
+
+            <TextView
+                android:id="@+id/z"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentLeft="true"
+                android:layout_below="@+id/y"
+                android:text="Medium Text"
+                android:textAppearance="?android:attr/textAppearanceMedium" />
+
+            <Button
+                android:id="@+id/start"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentLeft="true"
+                android:layout_below="@+id/z"
+                android:text="Start" />
+
+            <Button
+                android:id="@+id/stop"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignBaseline="@+id/start"
+                android:layout_alignBottom="@+id/start"
+                android:layout_toRightOf="@+id/start"
+                android:text="Stop" />
+
+        </RelativeLayout>
 
         <android.gesture.GestureOverlayView
             android:id="@+id/gestureOverlayView1"
@@ -26,7 +68,6 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:background="#FF0000" >
-
         </android.gesture.GestureOverlayView>
     </LinearLayout>
 

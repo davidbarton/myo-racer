@@ -40,7 +40,9 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.view.View.OnTouchListener;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -60,7 +62,18 @@ public class HelloWorldActivity extends Activity {
 	// Bluetooth activity exits.
 	private static final int REQUEST_ENABLE_BT = 1;
 
-	private TextView mTextView;
+	private TextView X;
+	private TextView Y;
+	private TextView Z;
+
+	private float rotationX;
+	private float rotationY;
+	private float rotationZ;
+	private float ref_rotationZ;
+	private float left_rotationZ;
+	private float right_rotationZ;
+	private float rot = 0;
+	private float heading = 0;
 
 	public static final String TAG = "OBX-HelloWorld";
 
@@ -69,6 +82,7 @@ public class HelloWorldActivity extends Activity {
 
 	private boolean connecting = false;
 	private boolean blinking = false;
+	private boolean ride = false;
 
 	private BluetoothAdapter mBluetoothAdapter;
 
@@ -83,7 +97,7 @@ public class HelloWorldActivity extends Activity {
 		@Override
 		public void onConnect(Myo myo, long timestamp) {
 			// Set the text color of the text view to cyan when a Myo connects.
-			mTextView.setTextColor(Color.CYAN);
+			// mTextView.setTextColor(Color.CYAN);
 		}
 
 		// onDisconnect() is called whenever a Myo has been disconnected.
@@ -91,7 +105,7 @@ public class HelloWorldActivity extends Activity {
 		public void onDisconnect(Myo myo, long timestamp) {
 			// Set the text color of the text view to red when a Myo
 			// disconnects.
-			mTextView.setTextColor(Color.RED);
+			// mTextView.setTextColor(Color.RED);
 		}
 
 		// onOrientationData() is called whenever a Myo provides its current
@@ -102,16 +116,42 @@ public class HelloWorldActivity extends Activity {
 				Quaternion rotation) {
 			// Calculate Euler angles (roll, pitch, and yaw) from the
 			// quaternion.
-			float rotationZ = (float) Math.toDegrees(Quaternion.roll(rotation));
-			float rotationX = (float) Math
-					.toDegrees(Quaternion.pitch(rotation));
-			float rotationY = (float) Math.toDegrees(Quaternion.yaw(rotation));
 
+			rotationZ = (float) Math.toDegrees(Quaternion.roll(rotation));
+			rotationX = (float) Math.toDegrees(Quaternion.pitch(rotation));
+			rotationY = (float) Math.toDegrees(Quaternion.yaw(rotation));
+			float heading1 = 0;
+			if (ride) {
+				// if (ref_rotationZ < rotationZ) {
+				// float zero = ref_rotationZ;
+				// float max = left_rotationZ - zero;
+				// heading1 = rotationZ - zero;
+				// heading1 /= max;
+				// heading += 1;
+				// heading *= -heading1;
+				// } else {
+				// float zero = ref_rotationZ;
+				// float max = right_rotationZ - zero;
+				//
+				//
+				// }
+				heading1 = (ref_rotationZ - rotationZ) / 30;
+				ref_rotationZ = rotationZ;
+				rot += heading1;				
+				heading += rot;
+				heading = heading % 360;
+				if (mRobot != null && mRobot.isConnected())
+					mRobot.drive(heading1, 0.5f);
+			}
+
+			X.setText(String.format("x: %.3f", rotationX));
+			Y.setText(String.format("y: %.3f", rotationY));
+			Z.setText(String.format("z: %.3f / %.3f / %.3f", rotationZ, rot, heading));
 			// Next, we apply a rotation to the text view using the roll, pitch,
 			// and yaw.
-			mTextView.setRotation(-rotationZ);
-			mTextView.setRotationX(-rotationX);
-			mTextView.setRotationY(rotationY);
+			// mTextView.setRotation(-rotationZ);
+			// mTextView.setRotationX(-rotationX);
+			// mTextView.setRotationY(rotationY);
 		}
 
 		// onPose() is called whenever a Myo provides a new pose.
@@ -122,7 +162,7 @@ public class HelloWorldActivity extends Activity {
 			// based on the pose we receive.
 			switch (pose.getType()) {
 			case NONE:
-				mTextView.setText(getString(R.string.hello_world));
+				// mTextView.setText(getString(R.string.hello_world));
 				break;
 			case FIST:
 				// mTextView.setText(getString(R.string.myosdk__pose_fist));
@@ -165,20 +205,6 @@ public class HelloWorldActivity extends Activity {
 
 					mBluetoothAdapter.cancelDiscovery();
 
-					Hub hub = Hub.getInstance();
-					if (!hub.init(HelloWorldActivity.this)) {
-						// We can't do anything with the Myo device if the Hub
-						// can't be
-						// initialized, so exit.
-						Toast.makeText(getApplicationContext(),
-								"Couldn't initialize Hub", Toast.LENGTH_SHORT)
-								.show();
-						finish();
-						return;
-					}
-
-					// Next, register for DeviceListener callbacks.
-					hub.addListener(mListener);
 					unregisterReceiver(mReceiver);
 				}
 				// Add the name and address to an array adapter to show in a
@@ -198,22 +224,43 @@ public class HelloWorldActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_hello_world);
 
-		mTextView = (TextView) findViewById(R.id.text);
+		// mTextView = (TextView) findViewById(R.id.text);
+		X = (TextView) findViewById(R.id.x);
+		Y = (TextView) findViewById(R.id.y);
+		Z = (TextView) findViewById(R.id.z);
+
+		Button start = (Button) findViewById(R.id.start);
+		start.setOnClickListener(new OnClickListener() {
+
+			@Override
+			public void onClick(View v) {
+				ride = true;
+				ref_rotationZ = rotationZ;
+			}
+		});
+		Button stop = (Button) findViewById(R.id.stop);
+		stop.setOnClickListener(new OnClickListener() {
+
+			@Override
+			public void onClick(View v) {
+				ride = false;
+			}
+		});
 
 		// First, we initialize the Hub singleton.
-
-		IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-		registerReceiver(mReceiver, filter);
-
-		filter = new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-		this.registerReceiver(mReceiver, filter);
-
-		mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-		if (mBluetoothAdapter.isDiscovering()) {
-			mBluetoothAdapter.cancelDiscovery();
+		Hub hub = Hub.getInstance();
+		if (!hub.init(HelloWorldActivity.this)) {
+			// We can't do anything with the Myo device if the Hub
+			// can't be
+			// initialized, so exit.
+			Toast.makeText(getApplicationContext(), "Couldn't initialize Hub",
+					Toast.LENGTH_SHORT).show();
+			finish();
+			return;
 		}
-		// Request discover from BluetoothAdapter
-		mBluetoothAdapter.startDiscovery();
+
+		// Next, register for DeviceListener callbacks.
+		hub.addListener(mListener);
 
 		gestureOverlayView = (GestureOverlayView) findViewById(R.id.gestureOverlayView1);
 		gestureOverlayView.setOnTouchListener(new OnTouchListener() {
@@ -222,13 +269,18 @@ public class HelloWorldActivity extends Activity {
 			public boolean onTouch(View v, MotionEvent event) {
 				switch (event.getAction()) {
 				case MotionEvent.ACTION_MOVE: {
+
+					float x = event.getX() - v.getHeight() / 2;
+					x /= v.getHeight() / 2;
+					// x *= -1;
+					float y = event.getY() - v.getWidth() / 2;
+					y /= v.getWidth() / 2;
+					y *= -1;
+					float heading = (float) (Math.atan2(x, y) / Math.PI * 180);
+					if (heading < 0)
+						heading = 360 + heading;
+					System.err.println(x + ":" + y + "=" + heading);
 					if (mRobot != null && mRobot.isConnected()) {
-						float x = event.getX() - v.getHeight() / 2;
-						x /= v.getHeight() / 2;
-						float y = event.getY() - v.getWidth() / 2;
-						y /= v.getWidth() / 2;
-						float heading = (float) (Math.atan2(x, y) / Math.PI * 180);
-						System.err.println(x + ":" + y+"="+heading);
 						mRobot.drive(heading, 0.5f);
 					}
 					break;
@@ -299,8 +351,28 @@ public class HelloWorldActivity extends Activity {
 		} else if (R.id.action_scan == id) {
 			onScanActionSelected();
 			return true;
+		} else if (R.id.action_findSphero == id) {
+			findSphero();
+			return true;
 		}
 		return super.onOptionsItemSelected(item);
+	}
+
+	private void findSphero() {
+
+		IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+		registerReceiver(mReceiver, filter);
+
+		filter = new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+		this.registerReceiver(mReceiver, filter);
+
+		mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+		if (mBluetoothAdapter.isDiscovering()) {
+			mBluetoothAdapter.cancelDiscovery();
+		}
+		// Request discover from BluetoothAdapter
+		mBluetoothAdapter.startDiscovery();
+
 	}
 
 	private void onTrainActionSelected() {
