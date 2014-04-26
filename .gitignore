@@ -2,4 +2,4 @@ gen
 bin
 .settings
 .classpath
-.project.properties
+project.properties

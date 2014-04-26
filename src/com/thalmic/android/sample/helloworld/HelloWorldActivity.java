@@ -6,15 +6,25 @@
 package com.thalmic.android.sample.helloworld;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import orbotix.robot.base.CollisionDetectedAsyncData;
 import orbotix.robot.base.Robot;
 import orbotix.robot.base.RobotProvider;
+import orbotix.robot.sensor.DeviceSensorsData;
 import orbotix.sphero.CollisionListener;
 import orbotix.sphero.ConnectionListener;
 import orbotix.sphero.DiscoveryListener;
 import orbotix.sphero.PersistentOptionFlags;
+import orbotix.sphero.SensorControl;
+import orbotix.sphero.SensorFlag;
+import orbotix.sphero.SensorListener;
 import orbotix.sphero.Sphero;
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -60,15 +70,31 @@ public class HelloWorldActivity extends Activity {
 	private TextView Y;
 	private TextView Z;
 
+	private List<MyMyo> myos = new ArrayList<MyMyo>(4);
+
 	private float rotationX;
 	private float rotationY;
 	private float rotationZ;
 	private float ref_rotationZ;
 	private float ref_rotationX;
+	private float ref_rotationY;
+
+	private static float norm_x = 0;
+	private static float norm_y = 0;
+
+	private static int maxRadius = 150;
+	private static int radius[] = { 30, 60, 150 };
+	private static int step = 0;
+
+	private static float sphero_x = 0;
+	private static float sphero_y = 0;
+
 	private float rotx = 0;
 	private float rotz = 0;
 	private float heading = 0;
 	private float speed = 0;
+
+	private boolean playingGame = false;
 
 	private int seekBarValue = 50;
 
@@ -96,6 +122,7 @@ public class HelloWorldActivity extends Activity {
 			// Set the text color of the text view to cyan when a Myo connects.
 			// mTextView.setTextColor(Color.CYAN);
 			connectedMyo = myo;
+			myos.add(new MyMyo(myo));
 			myo.vibrate(VibrationType.LONG);
 		}
 
@@ -105,6 +132,7 @@ public class HelloWorldActivity extends Activity {
 			// Set the text color of the text view to red when a Myo
 			// disconnects.
 			// mTextView.setTextColor(Color.RED);
+			myos.remove(myo);
 			connectedMyo = null;
 		}
 
@@ -117,9 +145,23 @@ public class HelloWorldActivity extends Activity {
 			// Calculate Euler angles (roll, pitch, and yaw) from the
 			// quaternion.
 
+			MyMyo selected = myos.get(myos.indexOf(new MyMyo(myo)));
+
 			rotationZ = (float) Math.toDegrees(Quaternion.roll(rotation));
 			rotationX = (float) Math.toDegrees(Quaternion.pitch(rotation));
 			rotationY = (float) Math.toDegrees(Quaternion.yaw(rotation));
+
+			selected.setRotationX(rotationX);
+			selected.setRotationY(rotationY);
+			selected.setRotationZ(rotationZ);
+
+			if (playingGame) {
+				selected.addSum();
+			}
+
+			if (myos.size() > 1)
+				return;
+
 			float heading1 = 0;
 			float speed1 = 0;
 			if (ride) {
@@ -153,7 +195,7 @@ public class HelloWorldActivity extends Activity {
 					heading = 360 + heading;
 				if (rotx < 0)
 					rotx = 0;
-				if(rotx > 1)
+				if (rotx > 1)
 					rotx = 1;
 				if (mRobot != null && ride)
 					mRobot.drive(heading, rotx);
@@ -161,10 +203,10 @@ public class HelloWorldActivity extends Activity {
 					mRobot.drive(0.0f, 0.0f);
 			}
 
-			X.setText(String.format("x: %.3f / %.3f", rotationX, rotx));
-			Y.setText(String.format("y: %.3f", rotationY));
-			Z.setText(String.format("z: %.3f / %.3f / %.3f", rotationZ, rotz,
-					heading));
+			// X.setText(String.format("x: %.3f / %.3f", rotationX, rotx));
+			// Y.setText(String.format("y: %.3f", rotationY));
+			// Z.setText(String.format("z: %.3f / %.3f / %.3f", rotationZ, rotz,
+			// heading));
 			// Next, we apply a rotation to the text view using the roll, pitch,
 			// and yaw.
 			// mTextView.setRotation(-rotationZ);
@@ -195,10 +237,10 @@ public class HelloWorldActivity extends Activity {
 				break;
 			case FINGERS_SPREAD:
 				// mTextView.setText(getString(R.string.myosdk__pose_fingersspread));
-				if (ride)
-					stop();
-				else
-					start();
+				// if (ride)
+				// stop();
+				// else
+				// start();
 				break;
 			case TWIST_IN:
 				// mTextView.setText(getString(R.string.myosdk__pose_twistin));
@@ -242,6 +284,7 @@ public class HelloWorldActivity extends Activity {
 		speed = 0;
 		ref_rotationZ = rotationZ;
 		ref_rotationX = rotationX;
+		ref_rotationY = rotationY;
 	}
 
 	private void stop() {
@@ -273,6 +316,147 @@ public class HelloWorldActivity extends Activity {
 			@Override
 			public void onClick(View v) {
 				stop();
+			}
+		});
+
+		final Button moveStop = (Button) findViewById(R.id.move_stop);
+		moveStop.setOnClickListener(new OnClickListener() {
+
+			@Override
+			public void onClick(View v) {
+				if (mRobot != null) {
+					mRobot.drive(0f, 0f);
+				}
+
+			}
+		});
+
+		final Button testGame = (Button) findViewById(R.id.test_game);
+		testGame.setOnClickListener(new OnClickListener() {
+
+			@Override
+			public void onClick(View v) {
+				new Thread(new Runnable() {
+
+					@Override
+					public void run() {
+						try {
+							norm_x = sphero_x;
+							norm_y = sphero_y;
+							mRobot.setColor(0, 255, 0);
+							Thread.sleep(1000);
+							mRobot.setColor(0, 0, 0);
+							Thread.sleep(1000);
+							mRobot.setColor(0, 255, 0);
+							Thread.sleep(1000);
+							mRobot.setColor(0, 0, 0);
+							Thread.sleep(1000);
+							mRobot.setColor(0, 255, 0);
+							Thread.sleep(1000);
+							mRobot.setColor(255, 0, 0);
+							step++;
+							testHeadToXY(0, radius[0]);
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					}
+				}).start();
+
+			}
+		});
+
+		final Button game = (Button) findViewById(R.id.game);
+		game.setOnClickListener(new OnClickListener() {
+
+			@Override
+			public void onClick(View v) {
+				// if (myos.size() < 2) {
+				// Toast.makeText(HelloWorldActivity.this,
+				// "Pripojte alespon 2 zarizeni myo",
+				// Toast.LENGTH_LONG).show();
+				// return;
+				// }
+				if (playingGame) {
+					game.setText("Let's play a game");
+					// scheduler.shutdown();
+					// gameCheck.cancel(true);
+					playingGame = false;
+				} else {
+					mRobot.drive(0f, 0f);
+					playingGame = true;
+					rotx = 0;
+					rotz = 0;
+					heading = 0;
+					speed = 0;
+					for (MyMyo myo : myos) {
+						myo.posToRef();
+					}
+					game.setText("Stop game");
+					new Thread(new Runnable() {
+
+						@Override
+						public void run() {
+							try {
+
+								int i = 0;
+								for (MyMyo myo : myos) {
+									myo.getMyo().vibrate(VibrationType.LONG);
+									switch (i) {
+									case 0: {
+										myo.setPos_x(0);
+										myo.setPos_y(maxRadius);
+										break;
+									}
+									case 1: {
+										myo.setPos_x(0);
+										myo.setPos_y(-maxRadius);
+										break;
+									}
+									case 2: {
+										myo.setPos_x(maxRadius);
+										myo.setPos_y(0);
+										break;
+									}
+									case 3: {
+										myo.setPos_x(-maxRadius);
+										myo.setPos_y(0);
+										break;
+									}
+									}
+									Thread.sleep(5000);
+									i++;
+								}
+								mRobot.setColor(0, 255, 0);
+								Thread.sleep(1000);
+								mRobot.setColor(0, 0, 0);
+								Thread.sleep(1000);
+								mRobot.setColor(0, 255, 0);
+								Thread.sleep(1000);
+								mRobot.setColor(0, 0, 0);
+								Thread.sleep(1000);
+								mRobot.setColor(0, 255, 0);
+								Thread.sleep(1000);
+								mRobot.setColor(255, 0, 0);
+								for (MyMyo myo : myos) {
+									myo.posToRef();
+									myo.clearSum();
+									Thread.sleep(5000);
+								}
+								Collections.sort(myos);
+								MyMyo myo = myos.get(0);
+								step++;
+								headToXY((myo.getPos_x() / radius.length)
+										* step,
+										(myo.getPos_y() / radius.length) * step);
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						}
+					}).start();
+
+				}
 			}
 		});
 
@@ -329,14 +513,18 @@ public class HelloWorldActivity extends Activity {
 					float heading = (float) (Math.atan2(x, y) / Math.PI * 180);
 					if (heading < 0)
 						heading = 360 + heading;
-					System.err.println(x + ":" + y + "=" + heading);
+					// System.err.println(x + ":" + y + "=" + heading);
 					if (mRobot != null) {
-						mRobot.setColor( (int)(256-(x/(event.getX() - v.getHeight() / 2))*256) , (int)(256-(y/(event.getY() - v.getWidth() / 2))*256), (int)(128+(heading%256)/2));
-						mRobot.drive(heading, (float) seekBarValue / (float) 100.0);
+						mRobot.setColor(
+								(int) (256 - (x / (event.getX() - v.getHeight() / 2)) * 256),
+								(int) (256 - (y / (event.getY() - v.getWidth() / 2)) * 256),
+								(int) (128 + (heading % 256) / 2));
+						mRobot.drive(heading, (float) seekBarValue
+								/ (float) 100.0);
 					}
 					break;
 				}
-				case MotionEvent.ACTION_UP: 
+				case MotionEvent.ACTION_UP:
 					float x = 0;
 					float y = 0;
 					float heading = 0;
@@ -446,7 +634,7 @@ public class HelloWorldActivity extends Activity {
 						mRobot.setColor(0, 255, 0);
 						connected();
 
-						// RobotProvider.getDefaultProvider().endDiscovery();
+						RobotProvider.getDefaultProvider().endDiscovery();
 
 					}
 				});
@@ -548,15 +736,17 @@ public class HelloWorldActivity extends Activity {
 		// Toast.makeText(HelloWorldActivity.this,
 		// mRobot.getName() + " Connected", Toast.LENGTH_LONG).show();
 
-		// final SensorControl control = mRobot.getSensorControl();
-		// control.addSensorListener(new SensorListener() {
-		// @Override
-		// public void sensorUpdated(DeviceSensorsData sensorDataArray) {
-		// Log.i(TAG, sensorDataArray.toString());
-		// }
-		// }, SensorFlag.ACCELEROMETER_NORMALIZED, SensorFlag.GYRO_NORMALIZED);
-		//
-		// control.setRate(1);
+		final SensorControl control = mRobot.getSensorControl();
+		control.addSensorListener(new SensorListener() {
+			@Override
+			public void sensorUpdated(DeviceSensorsData sensorDataArray) {
+				// Log.i(TAG, sensorDataArray.toString());
+				sphero_x = sensorDataArray.getLocatorData().getPositionX();
+				sphero_y = sensorDataArray.getLocatorData().getPositionY();
+			}
+		}, SensorFlag.LOCATOR);
+
+		control.setRate(20);
 
 		mRobot.enableStabilization(true);
 
@@ -602,5 +792,103 @@ public class HelloWorldActivity extends Activity {
 		// PersistentOptionFlags.EnableVectorDrive));
 		// Log.v(TAG, mRobot.getConfiguration().toString());
 
+	}
+
+	private void testHeadToXY(final float x, final float y) {
+		if (x == 0 && y == 0) {
+			mRobot.drive(0f, 0f);
+			return;
+		}
+		new Thread(new Runnable() {
+
+			@Override
+			public void run() {
+
+				System.out.println("test");
+				while (Math.abs(x - (sphero_x - norm_x)) > 25
+						|| Math.abs(y - (sphero_y - norm_y)) > 25) {
+					float heading = (float) Math
+							.toDegrees((float) ((Math.PI / 2) - Math.atan2(y
+									- (sphero_y - norm_y), x
+									- (sphero_x - norm_x)))) % 360;
+					if (heading < 0)
+						heading = (360 - heading) % 360;
+					final float printh = heading;
+					runOnUiThread(new Runnable() {
+
+						@Override
+						public void run() {
+
+							X.setText(String
+									.format("Heading: %.2f, x:%.1f, y=%.1f; toX:%.1f, toY:%.1f",
+											printh, (sphero_x - norm_x),
+											(sphero_y - norm_y), x, y));
+
+						}
+					});
+					mRobot.drive(heading, (float) seekBarValue / 100.0f);
+				}
+				mRobot.drive(0f, 0f);
+
+				if (step < radius.length) {
+					testHeadToXY(0, radius[step++]);
+				} else {
+					testHeadToXY(0, 0);
+				}
+				if (x == 0 && y == 0) {
+					mRobot.drive(0f, 0f);
+				}
+			}
+		}).start();
+	}
+
+	private void headToXY(final float x, final float y) {
+		new Thread(new Runnable() {
+
+			@Override
+			public void run() {
+
+				System.out.println("test");
+				while (Math.abs(x - (sphero_x - norm_x)) > 25
+						|| Math.abs(y - (sphero_y - norm_y)) > 25) {
+					float heading = (float) Math
+							.toDegrees((float) ((Math.PI / 2) - Math.atan2(y
+									- (sphero_y - norm_y), x
+									- (sphero_x - norm_x)))) % 360;
+					if (heading < 0)
+						heading = (360 - heading) % 360;
+					final float printh = heading;
+					runOnUiThread(new Runnable() {
+
+						@Override
+						public void run() {
+
+							X.setText(String
+									.format("Heading: %.2f, x:%.1f, y=%.1f; toX:%.1f, toY:%.1f",
+											printh, (sphero_x - norm_x),
+											(sphero_y - norm_y), x, y));
+
+						}
+					});
+					mRobot.drive(heading, (float) seekBarValue / 100.0f);
+				}
+				mRobot.drive(0f, 0f);
+
+				if (step < radius.length) {
+					testHeadToXY(0, radius[step++]);
+					for (MyMyo myo : myos) {
+						myo.posToRef();
+						myo.clearSum();
+					}
+					Collections.sort(myos);
+					MyMyo myo = myos.get(0);
+					headToXY((myo.getPos_x() % 1) * radius[step],
+							(myo.getPos_y() % 1) * radius[step]);
+				} else {
+					testHeadToXY(0, 0);
+				}
+			}
+
+		}).start();
 	}
 }
