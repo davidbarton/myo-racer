@@ -11,14 +11,10 @@ import java.util.List;
 import orbotix.robot.base.CollisionDetectedAsyncData;
 import orbotix.robot.base.Robot;
 import orbotix.robot.base.RobotProvider;
-import orbotix.robot.sensor.DeviceSensorsData;
 import orbotix.sphero.CollisionListener;
 import orbotix.sphero.ConnectionListener;
 import orbotix.sphero.DiscoveryListener;
 import orbotix.sphero.PersistentOptionFlags;
-import orbotix.sphero.SensorControl;
-import orbotix.sphero.SensorFlag;
-import orbotix.sphero.SensorListener;
 import orbotix.sphero.Sphero;
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -157,6 +153,8 @@ public class HelloWorldActivity extends Activity {
 					heading = 360 + heading;
 				if (rotx < 0)
 					rotx = 0;
+				if(rotx > 1)
+					rotx = 1;
 				if (mRobot != null && ride)
 					mRobot.drive(heading, rotx);
 				else if (mRobot != null)
@@ -333,12 +331,20 @@ public class HelloWorldActivity extends Activity {
 						heading = 360 + heading;
 					System.err.println(x + ":" + y + "=" + heading);
 					if (mRobot != null) {
-						mRobot.setColor(255, 0, 0);
-						mRobot.drive(heading, (float) seekBarValue
-								/ (float) 100.0);
+						mRobot.setColor( (int)(256-(x/(event.getX() - v.getHeight() / 2))*256) , (int)(256-(y/(event.getY() - v.getWidth() / 2))*256), (int)(128+(heading%256)/2));
+						mRobot.drive(heading, (float) seekBarValue / (float) 100.0);
 					}
 					break;
 				}
+				case MotionEvent.ACTION_UP: 
+					float x = 0;
+					float y = 0;
+					float heading = 0;
+					System.err.println(x + ":" + y + "=" + heading);
+					if (mRobot != null && mRobot.isConnected()) {
+						mRobot.drive(heading, .0f);
+					}
+					break;
 				default:
 					break;
 				}
@@ -542,16 +548,15 @@ public class HelloWorldActivity extends Activity {
 		// Toast.makeText(HelloWorldActivity.this,
 		// mRobot.getName() + " Connected", Toast.LENGTH_LONG).show();
 
-		final SensorControl control = mRobot.getSensorControl();
-		control.addSensorListener(new SensorListener() {
-			@Override
-			public void sensorUpdated(DeviceSensorsData sensorDataArray) {
-				Log.i(TAG, sensorDataArray.toString());
-			}
-		}, SensorFlag.MOTOR_BACKEMF_NORMALIZED, SensorFlag.VELOCITY,
-				SensorFlag.ACCELEROMETER_NORMALIZED, SensorFlag.GYRO_NORMALIZED);
-
-		control.setRate(1);
+		// final SensorControl control = mRobot.getSensorControl();
+		// control.addSensorListener(new SensorListener() {
+		// @Override
+		// public void sensorUpdated(DeviceSensorsData sensorDataArray) {
+		// Log.i(TAG, sensorDataArray.toString());
+		// }
+		// }, SensorFlag.ACCELEROMETER_NORMALIZED, SensorFlag.GYRO_NORMALIZED);
+		//
+		// control.setRate(1);
 
 		mRobot.enableStabilization(true);
 
