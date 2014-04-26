@@ -6,27 +6,20 @@
 package com.thalmic.android.sample.helloworld;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import orbotix.robot.base.CollisionDetectedAsyncData;
 import orbotix.robot.base.Robot;
-import orbotix.robot.base.RobotControl;
 import orbotix.robot.base.RobotProvider;
-import orbotix.robot.sensor.DeviceSensorsData;
 import orbotix.sphero.CollisionListener;
 import orbotix.sphero.ConnectionListener;
+import orbotix.sphero.DiscoveryListener;
 import orbotix.sphero.PersistentOptionFlags;
-import orbotix.sphero.SensorControl;
-import orbotix.sphero.SensorFlag;
-import orbotix.sphero.SensorListener;
 import orbotix.sphero.Sphero;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.gesture.GestureOverlayView;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -86,8 +79,6 @@ public class HelloWorldActivity extends Activity {
 
 	private Myo connectedMyo;
 
-	private BluetoothAdapter mBluetoothAdapter;
-
 	private GestureOverlayView gestureOverlayView;
 
 	// Classes that inherit from AbstractDeviceListener can be used to receive
@@ -102,7 +93,6 @@ public class HelloWorldActivity extends Activity {
 			// mTextView.setTextColor(Color.CYAN);
 			connectedMyo = myo;
 			myo.vibrate(VibrationType.LONG);
-			Hub hub = Hub.getInstance();
 		}
 
 		// onDisconnect() is called whenever a Myo has been disconnected.
@@ -159,8 +149,10 @@ public class HelloWorldActivity extends Activity {
 					heading = 360 + heading;
 				if (rotx < 0)
 					rotx = 0;
-				if (mRobot != null && mRobot.isConnected() && ride)
+				if (mRobot != null && ride)
 					mRobot.drive(heading, rotx);
+				else if (mRobot != null)
+					mRobot.drive(0.0f, 0.0f);
 			}
 
 			X.setText(String.format("x: %.3f / %.3f", rotationX, rotx));
@@ -197,11 +189,14 @@ public class HelloWorldActivity extends Activity {
 				break;
 			case FINGERS_SPREAD:
 				// mTextView.setText(getString(R.string.myosdk__pose_fingersspread));
-				stop();
+				if (ride)
+					stop();
+				else
+					start();
 				break;
 			case TWIST_IN:
 				// mTextView.setText(getString(R.string.myosdk__pose_twistin));
-				start();
+
 				break;
 			}
 		}
@@ -230,65 +225,6 @@ public class HelloWorldActivity extends Activity {
 			super.onRssi(myo, timestamp, rssi);
 		}
 
-	};
-
-	// Create a BroadcastReceiver for ACTION_FOUND
-	private BroadcastReceiver mReceiver = new BroadcastReceiver() {
-		public void onReceive(Context context, Intent intent) {
-			String action = intent.getAction();
-			// When discovery finds a device
-			if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-				// Get the BluetoothDevice object from the Intent
-				BluetoothDevice device = intent
-						.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-				if (device.getAddress().equals("68:86:E7:03:BE:1D")) {
-					Log.i("MyoRacer", "Sphero found. Now connect to Myo");
-					mRobot = new Sphero(device);
-					RobotProvider.getDefaultProvider().addConnectionListener(
-							new ConnectionListener() {
-
-								@Override
-								public void onDisconnected(Robot arg0) {
-									// TODO Auto-generated method stub
-
-								}
-
-								@Override
-								public void onConnectionFailed(Robot arg0) {
-									// TODO Auto-generated method stub
-
-								}
-
-								@Override
-								public void onConnected(Robot arg0) {
-									mRobot = (Sphero) arg0;
-									mRobot.getConfiguration().setPersistentFlag(PersistentOptionFlags.EnableVectorDrive, true);
-									connected();
-									RobotProvider.getDefaultProvider().control(
-											mRobot);
-//									mRobot.setConnected(true);
-									// mRobot.enableStabilization(false);
-									mRobot.setColor(0, 255, 0);
-									// connected();
-
-									mBluetoothAdapter.cancelDiscovery();
-
-//									unregisterReceiver(mReceiver);
-
-								}
-							});
-					RobotProvider.getDefaultProvider().connect(mRobot);
-				}
-				// Add the name and address to an array adapter to show in a
-				// ListView
-				System.out.println(device.getName() + "\n"
-						+ device.getAddress());
-			} else if (action
-					.equals(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)) {
-				mBluetoothAdapter.startDiscovery();
-			}
-
-		}
 	};
 
 	private void start() {
@@ -366,8 +302,9 @@ public class HelloWorldActivity extends Activity {
 					if (heading < 0)
 						heading = 360 + heading;
 					System.err.println(x + ":" + y + "=" + heading);
-					if (mRobot != null && mRobot.isConnected()) {
-						mRobot.drive(heading, 0.5f);
+					if (mRobot != null) {
+						mRobot.setColor(255, 0, 0);
+						mRobot.drive(heading, 0.8f);
 					}
 					break;
 				}
@@ -398,6 +335,10 @@ public class HelloWorldActivity extends Activity {
 		super.onDestroy();
 		// We don't want any callbacks when the Activity is gone, so unregister
 		// the listener.
+		if (mRobot != null) {
+			mRobot.disconnect();
+		}
+
 		Hub.getInstance().removeListener(mListener);
 
 		if (isFinishing()) {
@@ -405,8 +346,6 @@ public class HelloWorldActivity extends Activity {
 			// disconnect from the Myo.
 			Hub.getInstance().shutdown();
 		}
-
-		unregisterReceiver(mReceiver);
 	}
 
 	@Override
@@ -445,18 +384,61 @@ public class HelloWorldActivity extends Activity {
 	}
 
 	private void findSphero() {
-		IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-		registerReceiver(mReceiver, filter);
 
-		filter = new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-		this.registerReceiver(mReceiver, filter);
+		RobotProvider.getDefaultProvider().addConnectionListener(
+				new ConnectionListener() {
 
-		mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-		if (mBluetoothAdapter.isDiscovering()) {
-			mBluetoothAdapter.cancelDiscovery();
-		}
-		// Request discover from BluetoothAdapter
-		mBluetoothAdapter.startDiscovery();
+					@Override
+					public void onDisconnected(Robot arg0) {
+						// TODO Auto-generated method stub
+						mRobot = null;
+					}
+
+					@Override
+					public void onConnectionFailed(Robot arg0) {
+						// TODO Auto-generated method stub
+
+					}
+
+					@Override
+					public void onConnected(Robot arg0) {
+						mRobot = (Sphero) arg0;
+
+						// RobotProvider.getDefaultProvider().control(mRobot);
+						// mRobot.enableStabilization(false);
+						mRobot.setColor(0, 255, 0);
+						connected();
+
+						// RobotProvider.getDefaultProvider().endDiscovery();
+
+					}
+				});
+
+		RobotProvider.getDefaultProvider().addDiscoveryListener(
+				new DiscoveryListener() {
+					@Override
+					public void onBluetoothDisabled() {
+						Log.d(TAG, "Bluetooth Disabled");
+						Toast.makeText(HelloWorldActivity.this,
+								"Bluetooth Disabled", Toast.LENGTH_LONG).show();
+					}
+
+					@Override
+					public void discoveryComplete(List<Sphero> spheros) {
+						Log.d(TAG, "Found " + spheros.size() + " robots");
+					}
+
+					@Override
+					public void onFound(List<Sphero> sphero) {
+						Log.d(TAG, "Found: " + sphero);
+						RobotProvider.getDefaultProvider().connect(
+								sphero.iterator().next());
+						RobotProvider.getDefaultProvider().endDiscovery();
+					}
+				});
+
+		RobotProvider.getDefaultProvider().startDiscovery(
+				getApplicationContext());
 
 	}
 
@@ -526,18 +508,20 @@ public class HelloWorldActivity extends Activity {
 	private void connected() {
 		Log.d(TAG, "Connected On Thread: " + Thread.currentThread().getName());
 		Log.d(TAG, "Connected: " + mRobot);
-//		Toast.makeText(HelloWorldActivity.this,
-//				mRobot.getName() + " Connected", Toast.LENGTH_LONG).show();
+		// Toast.makeText(HelloWorldActivity.this,
+		// mRobot.getName() + " Connected", Toast.LENGTH_LONG).show();
 
-		final SensorControl control = mRobot.getSensorControl();
-		control.addSensorListener(new SensorListener() {
-			@Override
-			public void sensorUpdated(DeviceSensorsData sensorDataArray) {
-				Log.i(TAG, sensorDataArray.toString());
-			}
-		}, SensorFlag.ACCELEROMETER_NORMALIZED, SensorFlag.GYRO_NORMALIZED);
+		// final SensorControl control = mRobot.getSensorControl();
+		// control.addSensorListener(new SensorListener() {
+		// @Override
+		// public void sensorUpdated(DeviceSensorsData sensorDataArray) {
+		// Log.i(TAG, sensorDataArray.toString());
+		// }
+		// }, SensorFlag.ACCELEROMETER_NORMALIZED, SensorFlag.GYRO_NORMALIZED);
+		//
+		// control.setRate(1);
 
-		control.setRate(10);
+		mRobot.enableStabilization(true);
 
 		mRobot.getCollisionControl().addCollisionListener(
 				new CollisionListener() {
@@ -546,17 +530,20 @@ public class HelloWorldActivity extends Activity {
 						Log.i(TAG, collisionData.toString());
 						if (connectedMyo != null)
 							connectedMyo.vibrate(VibrationType.MEDIUM);
-						Log.i(TAG, collisionData.toString());
 					}
 				});
-		mRobot.enableStabilization(false);
-		mRobot.getCollisionControl().startDetection(1, 1, 1, 1, 100);// ball to
-																		// wall
-																		// Xt=200,
-																		// Xsp=0,
-																		// Yt=125,
-																		// Ysp=0,
-																		// deadTime=100
+		mRobot.getCollisionControl().startDetection(80, 30, 80, 30, 100);// ball
+																			// to
+																			// wall
+																			// Xt=200,
+																			// Xsp=0,
+																			// Yt=125,
+																			// Ysp=0,
+																			// deadTime=100
+																			// mRobot.getConfiguration().setPersistentFlag(
+		// PersistentOptionFlags.PreventSleepInCharger, false);
+		// mRobot.getConfiguration().setPersistentFlag(
+		// PersistentOptionFlags.EnableVectorDrive, true);
 
 		// boolean preventSleepInCharger = mRobot.getConfiguration()
 		// .isPersistentFlagEnabled(
@@ -577,36 +564,6 @@ public class HelloWorldActivity extends Activity {
 		// + mRobot.getConfiguration().isPersistentFlagEnabled(
 		// PersistentOptionFlags.EnableVectorDrive));
 		// Log.v(TAG, mRobot.getConfiguration().toString());
-
-	}
-
-	private void startSphero() {
-		RobotProvider.getDefaultProvider().addConnectionListener(
-				new ConnectionListener() {
-					@Override
-					public void onConnected(Robot robot) {
-						mRobot = (Sphero) robot;
-						connected();
-					}
-
-					@Override
-					public void onConnectionFailed(Robot sphero) {
-						Log.d(TAG, "Connection Failed: " + sphero);
-						Toast.makeText(HelloWorldActivity.this,
-								"Sphero Connection Failed", Toast.LENGTH_SHORT)
-								.show();
-					}
-
-					@Override
-					public void onDisconnected(Robot robot) {
-						Log.d(TAG, "Disconnected: " + robot);
-						Toast.makeText(HelloWorldActivity.this,
-								"Sphero Disconnected", Toast.LENGTH_SHORT)
-								.show();
-						stopBlink();
-						mRobot = null;
-					}
-				});
 
 	}
 }
