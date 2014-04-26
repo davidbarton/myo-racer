@@ -9,6 +9,7 @@ import java.util.ArrayList;
 
 import orbotix.robot.base.CollisionDetectedAsyncData;
 import orbotix.robot.base.Robot;
+import orbotix.robot.base.RobotControl;
 import orbotix.robot.base.RobotProvider;
 import orbotix.robot.sensor.DeviceSensorsData;
 import orbotix.sphero.CollisionListener;
@@ -158,7 +159,7 @@ public class HelloWorldActivity extends Activity {
 					heading = 360 + heading;
 				if (rotx < 0)
 					rotx = 0;
-				if (mRobot != null && mRobot.isConnected())
+				if (mRobot != null && mRobot.isConnected() && ride)
 					mRobot.drive(heading, rotx);
 			}
 
@@ -186,7 +187,7 @@ public class HelloWorldActivity extends Activity {
 				break;
 			case FIST:
 				// mTextView.setText(getString(R.string.myosdk__pose_fist));
-				
+
 				break;
 			case WAVE_IN:
 				// mTextView.setText(getString(R.string.myosdk__pose_wavein));
@@ -228,10 +229,9 @@ public class HelloWorldActivity extends Activity {
 			// TODO Auto-generated method stub
 			super.onRssi(myo, timestamp, rssi);
 		}
-		
-		
+
 	};
-	
+
 	// Create a BroadcastReceiver for ACTION_FOUND
 	private BroadcastReceiver mReceiver = new BroadcastReceiver() {
 		public void onReceive(Context context, Intent intent) {
@@ -244,18 +244,40 @@ public class HelloWorldActivity extends Activity {
 				if (device.getAddress().equals("68:86:E7:03:BE:1D")) {
 					Log.i("MyoRacer", "Sphero found. Now connect to Myo");
 					mRobot = new Sphero(device);
+					RobotProvider.getDefaultProvider().addConnectionListener(
+							new ConnectionListener() {
 
+								@Override
+								public void onDisconnected(Robot arg0) {
+									// TODO Auto-generated method stub
+
+								}
+
+								@Override
+								public void onConnectionFailed(Robot arg0) {
+									// TODO Auto-generated method stub
+
+								}
+
+								@Override
+								public void onConnected(Robot arg0) {
+									mRobot = (Sphero) arg0;
+									mRobot.getConfiguration().setPersistentFlag(PersistentOptionFlags.EnableVectorDrive, true);
+									connected();
+									RobotProvider.getDefaultProvider().control(
+											mRobot);
+//									mRobot.setConnected(true);
+									// mRobot.enableStabilization(false);
+									mRobot.setColor(0, 255, 0);
+									// connected();
+
+									mBluetoothAdapter.cancelDiscovery();
+
+//									unregisterReceiver(mReceiver);
+
+								}
+							});
 					RobotProvider.getDefaultProvider().connect(mRobot);
-					RobotProvider.getDefaultProvider().control(mRobot);
-					mRobot.setConnected(true);
-					connected();
-					// mRobot.enableStabilization(false);
-					mRobot.setColor(0, 255, 0);
-					// connected();
-
-					mBluetoothAdapter.cancelDiscovery();
-
-					unregisterReceiver(mReceiver);
 				}
 				// Add the name and address to an array adapter to show in a
 				// ListView
@@ -504,8 +526,8 @@ public class HelloWorldActivity extends Activity {
 	private void connected() {
 		Log.d(TAG, "Connected On Thread: " + Thread.currentThread().getName());
 		Log.d(TAG, "Connected: " + mRobot);
-		Toast.makeText(HelloWorldActivity.this,
-				mRobot.getName() + " Connected", Toast.LENGTH_LONG).show();
+//		Toast.makeText(HelloWorldActivity.this,
+//				mRobot.getName() + " Connected", Toast.LENGTH_LONG).show();
 
 		final SensorControl control = mRobot.getSensorControl();
 		control.addSensorListener(new SensorListener() {
@@ -515,9 +537,8 @@ public class HelloWorldActivity extends Activity {
 			}
 		}, SensorFlag.ACCELEROMETER_NORMALIZED, SensorFlag.GYRO_NORMALIZED);
 
-		control.setRate(1);
+		control.setRate(10);
 
-		mRobot.getCollisionControl().startDetection(45, 45, 100, 100, 100);
 		mRobot.getCollisionControl().addCollisionListener(
 				new CollisionListener() {
 					public void collisionDetected(
@@ -525,9 +546,17 @@ public class HelloWorldActivity extends Activity {
 						Log.i(TAG, collisionData.toString());
 						if (connectedMyo != null)
 							connectedMyo.vibrate(VibrationType.MEDIUM);
+						Log.i(TAG, collisionData.toString());
 					}
 				});
 		mRobot.enableStabilization(false);
+		mRobot.getCollisionControl().startDetection(1, 1, 1, 1, 100);// ball to
+																		// wall
+																		// Xt=200,
+																		// Xsp=0,
+																		// Yt=125,
+																		// Ysp=0,
+																		// deadTime=100
 
 		// boolean preventSleepInCharger = mRobot.getConfiguration()
 		// .isPersistentFlagEnabled(
