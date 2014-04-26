@@ -6,9 +6,6 @@
 package com.thalmic.android.sample.helloworld;
 
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Observable;
-import java.util.Observer;
 
 import orbotix.robot.base.CollisionDetectedAsyncData;
 import orbotix.robot.base.Robot;
@@ -16,7 +13,6 @@ import orbotix.robot.base.RobotProvider;
 import orbotix.robot.sensor.DeviceSensorsData;
 import orbotix.sphero.CollisionListener;
 import orbotix.sphero.ConnectionListener;
-import orbotix.sphero.DiscoveryListener;
 import orbotix.sphero.PersistentOptionFlags;
 import orbotix.sphero.SensorControl;
 import orbotix.sphero.SensorFlag;
@@ -50,8 +46,10 @@ import com.thalmic.myo.AbstractDeviceListener;
 import com.thalmic.myo.DeviceListener;
 import com.thalmic.myo.Hub;
 import com.thalmic.myo.Myo;
+import com.thalmic.myo.Myo.VibrationType;
 import com.thalmic.myo.Pose;
 import com.thalmic.myo.Quaternion;
+import com.thalmic.myo.Vector3;
 import com.thalmic.myo.scanner.ScanActivity;
 import com.thalmic.myo.trainer.TrainActivity;
 
@@ -70,10 +68,11 @@ public class HelloWorldActivity extends Activity {
 	private float rotationY;
 	private float rotationZ;
 	private float ref_rotationZ;
-	private float left_rotationZ;
-	private float right_rotationZ;
-	private float rot = 0;
+	private float ref_rotationX;
+	private float rotx = 0;
+	private float rotz = 0;
 	private float heading = 0;
+	private float speed = 0;
 
 	public static final String TAG = "OBX-HelloWorld";
 
@@ -83,6 +82,8 @@ public class HelloWorldActivity extends Activity {
 	private boolean connecting = false;
 	private boolean blinking = false;
 	private boolean ride = false;
+
+	private Myo connectedMyo;
 
 	private BluetoothAdapter mBluetoothAdapter;
 
@@ -98,6 +99,9 @@ public class HelloWorldActivity extends Activity {
 		public void onConnect(Myo myo, long timestamp) {
 			// Set the text color of the text view to cyan when a Myo connects.
 			// mTextView.setTextColor(Color.CYAN);
+			connectedMyo = myo;
+			myo.vibrate(VibrationType.LONG);
+			Hub hub = Hub.getInstance();
 		}
 
 		// onDisconnect() is called whenever a Myo has been disconnected.
@@ -106,6 +110,7 @@ public class HelloWorldActivity extends Activity {
 			// Set the text color of the text view to red when a Myo
 			// disconnects.
 			// mTextView.setTextColor(Color.RED);
+			connectedMyo = null;
 		}
 
 		// onOrientationData() is called whenever a Myo provides its current
@@ -121,6 +126,7 @@ public class HelloWorldActivity extends Activity {
 			rotationX = (float) Math.toDegrees(Quaternion.pitch(rotation));
 			rotationY = (float) Math.toDegrees(Quaternion.yaw(rotation));
 			float heading1 = 0;
+			float speed1 = 0;
 			if (ride) {
 				// if (ref_rotationZ < rotationZ) {
 				// float zero = ref_rotationZ;
@@ -135,18 +141,31 @@ public class HelloWorldActivity extends Activity {
 				//
 				//
 				// }
-				heading1 = (ref_rotationZ - rotationZ) / 30;
+				speed1 = (ref_rotationX - rotationX) / 100;
+				if (speed1 != Float.NaN) {
+					ref_rotationX = rotationX;
+					rotx -= speed1;
+				}
+				// speed += rotx;
+				// heading = heading % 360;
+
+				heading1 = (ref_rotationZ - rotationZ) / 50;
 				ref_rotationZ = rotationZ;
-				rot += heading1;				
-				heading += rot;
+				rotz += heading1;
+				heading += rotz;
 				heading = heading % 360;
+				if (heading < 0)
+					heading = 360 + heading;
+				if (rotx < 0)
+					rotx = 0;
 				if (mRobot != null && mRobot.isConnected())
-					mRobot.drive(heading1, 0.5f);
+					mRobot.drive(heading, rotx);
 			}
 
-			X.setText(String.format("x: %.3f", rotationX));
+			X.setText(String.format("x: %.3f / %.3f", rotationX, rotx));
 			Y.setText(String.format("y: %.3f", rotationY));
-			Z.setText(String.format("z: %.3f / %.3f / %.3f", rotationZ, rot, heading));
+			Z.setText(String.format("z: %.3f / %.3f / %.3f", rotationZ, rotz,
+					heading));
 			// Next, we apply a rotation to the text view using the roll, pitch,
 			// and yaw.
 			// mTextView.setRotation(-rotationZ);
@@ -159,6 +178,7 @@ public class HelloWorldActivity extends Activity {
 		public void onPose(Myo myo, long timestamp, Pose pose) {
 			// Handle the cases of the Pose.Type enumeration, and change the
 			// text of the text view
+
 			// based on the pose we receive.
 			switch (pose.getType()) {
 			case NONE:
@@ -166,6 +186,7 @@ public class HelloWorldActivity extends Activity {
 				break;
 			case FIST:
 				// mTextView.setText(getString(R.string.myosdk__pose_fist));
+				
 				break;
 			case WAVE_IN:
 				// mTextView.setText(getString(R.string.myosdk__pose_wavein));
@@ -175,16 +196,44 @@ public class HelloWorldActivity extends Activity {
 				break;
 			case FINGERS_SPREAD:
 				// mTextView.setText(getString(R.string.myosdk__pose_fingersspread));
+				stop();
 				break;
 			case TWIST_IN:
 				// mTextView.setText(getString(R.string.myosdk__pose_twistin));
+				start();
 				break;
 			}
 		}
-	};
 
+		@Override
+		public void onAccelerometerData(Myo myo, long timestamp, Vector3 accel) {
+			// TODO Auto-generated method stub
+			super.onAccelerometerData(myo, timestamp, accel);
+		}
+
+		@Override
+		public void onGyroscopeData(Myo myo, long timestamp, Vector3 gyro) {
+			// TODO Auto-generated method stub
+			super.onGyroscopeData(myo, timestamp, gyro);
+		}
+
+		@Override
+		public void onPair(Myo myo, long timestamp) {
+			// TODO Auto-generated method stub
+			super.onPair(myo, timestamp);
+		}
+
+		@Override
+		public void onRssi(Myo myo, long timestamp, int rssi) {
+			// TODO Auto-generated method stub
+			super.onRssi(myo, timestamp, rssi);
+		}
+		
+		
+	};
+	
 	// Create a BroadcastReceiver for ACTION_FOUND
-	private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+	private BroadcastReceiver mReceiver = new BroadcastReceiver() {
 		public void onReceive(Context context, Intent intent) {
 			String action = intent.getAction();
 			// When discovery finds a device
@@ -193,14 +242,15 @@ public class HelloWorldActivity extends Activity {
 				BluetoothDevice device = intent
 						.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
 				if (device.getAddress().equals("68:86:E7:03:BE:1D")) {
-					Log.d("MyoRacer", "Sphero found. Now connect to Myo");
+					Log.i("MyoRacer", "Sphero found. Now connect to Myo");
 					mRobot = new Sphero(device);
 
 					RobotProvider.getDefaultProvider().connect(mRobot);
 					RobotProvider.getDefaultProvider().control(mRobot);
 					mRobot.setConnected(true);
-
-					mRobot.setColor(0, 0, 255);
+					connected();
+					// mRobot.enableStabilization(false);
+					mRobot.setColor(0, 255, 0);
 					// connected();
 
 					mBluetoothAdapter.cancelDiscovery();
@@ -219,6 +269,22 @@ public class HelloWorldActivity extends Activity {
 		}
 	};
 
+	private void start() {
+		gestureOverlayView.setBackgroundColor(Color.GREEN);
+		ride = true;
+		rotx = 0;
+		rotz = 0;
+		heading = 0;
+		speed = 0;
+		ref_rotationZ = rotationZ;
+		ref_rotationX = rotationX;
+	}
+
+	private void stop() {
+		ride = false;
+		gestureOverlayView.setBackgroundColor(Color.RED);
+	}
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -234,8 +300,7 @@ public class HelloWorldActivity extends Activity {
 
 			@Override
 			public void onClick(View v) {
-				ride = true;
-				ref_rotationZ = rotationZ;
+				start();
 			}
 		});
 		Button stop = (Button) findViewById(R.id.stop);
@@ -243,7 +308,7 @@ public class HelloWorldActivity extends Activity {
 
 			@Override
 			public void onClick(View v) {
-				ride = false;
+				stop();
 			}
 		});
 
@@ -261,7 +326,6 @@ public class HelloWorldActivity extends Activity {
 
 		// Next, register for DeviceListener callbacks.
 		hub.addListener(mListener);
-
 		gestureOverlayView = (GestureOverlayView) findViewById(R.id.gestureOverlayView1);
 		gestureOverlayView.setOnTouchListener(new OnTouchListener() {
 
@@ -359,7 +423,6 @@ public class HelloWorldActivity extends Activity {
 	}
 
 	private void findSphero() {
-
 		IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
 		registerReceiver(mReceiver, filter);
 
@@ -448,25 +511,23 @@ public class HelloWorldActivity extends Activity {
 		control.addSensorListener(new SensorListener() {
 			@Override
 			public void sensorUpdated(DeviceSensorsData sensorDataArray) {
-				Log.d(TAG, sensorDataArray.toString());
+				Log.i(TAG, sensorDataArray.toString());
 			}
 		}, SensorFlag.ACCELEROMETER_NORMALIZED, SensorFlag.GYRO_NORMALIZED);
 
 		control.setRate(1);
-		mRobot.enableStabilization(false);
-		mRobot.drive(90, 0);
-		mRobot.setBackLEDBrightness(.5f);
 
-		mRobot.getCollisionControl().startDetection(255, 255, 255, 255, 255);
+		mRobot.getCollisionControl().startDetection(45, 45, 100, 100, 100);
 		mRobot.getCollisionControl().addCollisionListener(
 				new CollisionListener() {
 					public void collisionDetected(
 							CollisionDetectedAsyncData collisionData) {
-						Log.d(TAG, collisionData.toString());
+						Log.i(TAG, collisionData.toString());
+						if (connectedMyo != null)
+							connectedMyo.vibrate(VibrationType.MEDIUM);
 					}
 				});
-
-		HelloWorldActivity.this.blink(false); // Blink the robot's LED
+		mRobot.enableStabilization(false);
 
 		// boolean preventSleepInCharger = mRobot.getConfiguration()
 		// .isPersistentFlagEnabled(
